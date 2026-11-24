@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FCL – digital tvilling av ett växttält</title>
+<style>
+:root{--g:#004628;--ink:#1a201c;--mu:#5c635e;--p:#f4efe6;--ok:#2f6b3a;--d:#b42318}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--p)}
+.top{background:var(--g);color:#fff;padding:20px 16px}
+.top h1{margin:4px 0 0;font-size:28px}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+.note{background:#e7f0e4;border:1px solid #c3d6bf;border-radius:14px;padding:14px;margin:16px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+button{font:inherit;cursor:pointer;border:0;border-radius:999px;padding:8px 14px;background:#fff;box-shadow:0 0 0 1px #d5d0c6}
+button.on{background:var(--g);color:#fff;box-shadow:none}
+button:disabled{opacity:.4;cursor:not-allowed}
+.grid{display:grid;gap:12px}
+@media(min-width:800px){.split{grid-template-columns:1.2fr .8fr}.sens{grid-template-columns:repeat(3,1fr)}.acts{grid-template-columns:repeat(2,1fr)}}
+.card{background:#fff;border-radius:16px;padding:14px;box-shadow:0 0 0 1px #e2ddd3}
+.label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mu)}
+.val{font-size:22px;font-variant-numeric:tabular-nums}
+.alert{display:none;background:#fde8e6;color:#7a1c16;border-radius:12px;padding:10px;margin:8px 0}
+.alert.show{display:block}
+svg.tent{width:100%;height:auto;border-radius:14px;background:#87aad0}
+.modes{display:flex;background:#efeae1;border-radius:10px;padding:3px;margin-top:8px}
+.modes button{flex:1;border-radius:8px;box-shadow:none;padding:7px 4px;font-size:12px}
+.bar{height:8px;background:#efeae1;border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ok)}
+.bar.ripe>i{background:var(--d)}
+article h2{color:var(--g);font-size:18px;margin:28px 0 8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--g);color:#fff;text-align:left;padding:6px 8px}
+td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:12px 0}
+.flow b{background:var(--g);color:#fff;border-radius:8px;padding:8px 10px;font-weight:600}
+.cap{color:var(--mu);font-size:12px;text-align:center}
+.wire{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bad{color:var(--d);font-weight:600}
+.good{color:var(--ok)}
+.lvl{display:grid;gap:8px;margin-top:8px}
+@media(min-width:800px){.lvl{grid-template-columns:repeat(3,1fr)}}
+table.fb{margin-top:8px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="wrap" style="padding:0">
+    <div class="label" style="color:#cfe3d4">FCL 1.9 · 24 november 2026 · testprotokoll · ingen installation</div>
+    <h1>FCL – växttält</h1>
+    <p>Protokollet säger vad som ska upptäckas, vad som faktiskt upptäcks, och vilket skydd som griper in.</p>
+  </div>
+</div>
+<div class="wrap">
+  <div class="note">
+    <strong>Så provar du.</strong> Felmatrisen sätter ett fel. Testprotokollet kör alla prov från samma startläge och skriver inte över din historik. Okänt är inte samma sak som av. Ingen installation behövs. Öppna filen i webbläsaren.
+    <div class="row">
+      <button data-scen="heat">1. Hetta</button>
+      <button data-scen="cold">2. Kyla</button>
+      <button data-scen="dry">3. Torka</button>
+      <button data-scen="ripe">4. Skörd redo</button>
+      <button data-scen="night">5. Natt</button>
+      <button data-scen="fault">6. Chili-givare tyst</button>
+      <button data-scen="overtemp">Övertemp</button>
+      <button data-scen="tank">Torr tank</button>
+      <button data-scen="weld">Relä fast slutet</button>
+      <button data-scen="valve">Ventil fast öppen</button>
+      <button data-scen="main">Huvudventil fast öppen</button>
+      <button data-scen="supply">Kontaktor fast</button>
+      <button data-scen="anemo">Anemometer tyst</button>
+      <button data-scen="spike">NOVA-spik</button>
+      <button data-scen="pi">Pi borta</button>
+      <button data-scen="shut">Ventil fast stängd</button>
+      <button data-scen="clog">Igensatt ledning</button>
+      <button data-scen="mqtt">MQTT borta</button>
+      <button data-scen="co2">Hög CO₂</button>
+      <button data-scen="breaker">Säkring</button>
+      <button data-scen="ack">Kvittera skydd</button>
+      <button data-scen="reset">Återställ drift</button>
+      <button data-scen="full">Nollställ simulering</button>
+      <button data-scen="wipe">Töm historik</button>
+    </div>
+    <p class="label" style="margin-top:12px">Felmatris</p>
+    <div class="row">
+      <button data-scen="noflo">Pump går, flöde noll</button>
+      <button data-scen="flow-lie">Flödesgivare visar noll</button>
+      <button data-scen="flow-stuck">Flödesgivare fast</button>
+      <button data-scen="flow-silent">Flödesgivare tyst</button>
+      <button data-scen="amp-zero">Ström visar noll</button>
+      <button data-scen="amp-over">Överström</button>
+      <button data-scen="anemo-stuck">Anemometer fast</button>
+      <button data-scen="nova-dead">NOVA ingen träff</button>
+      <button data-scen="pi-heat">Pi och termostat</button>
+      <button data-scen="pi-float">Pi och vippa</button>
+      <button data-scen="pi-both">Pi och båda</button>
+      <button data-scen="temp">Temp tyst</button>
+    </div>
+  </div>
+
+  <div class="grid split">
+    <div class="card">
+      <p class="label">Växttältet</p>
+      <svg class="tent" viewBox="0 0 640 340">
+        <rect class="sky" x="0" y="0" width="640" height="340" fill="#87aad0"/>
+        <polygon points="70,50 320,18 570,50 570,310 70,310" fill="#1a1f1c"/>
+        <polygon points="90,62 320,34 550,62 550,292 90,292" fill="#c8d4c4"/>
+        <rect class="led" x="140" y="70" width="360" height="10" rx="4" fill="#9aa"/>
+        <g id="plants"></g>
+      </svg>
+      <div class="row" id="weather">
+        <button data-w="sunny" class="on">Sol</button>
+        <button data-w="cloudy">Moln</button>
+        <button data-w="heatwave">Hetta</button>
+        <button data-w="cold">Kyla</button>
+        <button data-w="storm">Storm</button>
+      </div>
+      <div class="row" id="clock">
+        <button data-hour="8">08:00</button>
+        <button data-hour="14" class="on">14:00</button>
+        <button data-hour="19">19:00</button>
+        <button data-hour="23">23:00 natt</button>
+      </div>
+      <div class="row" id="speed">
+        <button data-speed="0">Paus</button>
+        <button data-speed="1">1 min</button>
+        <button data-speed="5" class="on">5 min</button>
+        <button data-speed="15">15 min</button>
+      </div>
+    </div>
+    <div>
+      <div class="grid sens" id="sensors"></div>
+      <div class="alert" id="alert"></div>
+      <div class="card" style="margin-top:12px">
+        <p class="label">Kamera / skörd</p>
+        <p id="cam"></p>
+        <div class="row">
+          <button id="camRaw">Raw NoIR</button>
+          <button id="camCal" class="on">Kalibrerad</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Testprotokoll</h3>
+  <div class="card">
+    <p class="label">FCL 1.9 · vad som ska upptäckas, vad som upptäcks, vilket skydd som griper in</p>
+    <div class="row" style="margin:8px 0"><button id="runproto">Kör testprotokoll</button></div>
+    <table class="fb" id="proto"></table>
+  </div>
+
+  <h3>Tre nivåer</h3>
+  <div class="lvl" id="levels"></div>
+  <div class="card" style="margin-top:12px">
+    <p class="label">Nivå 3 · önskat läge mot faktiskt läge</p>
+    <p style="margin:6px 0 0">Kommando är vad Pi vill. Relä är spolen. Position är ändläge. Process är en egen mätning: luftflöde, varvtal, ljus under lampan, ström i värmaren eller pulser från flödesgivaren. Ett öppet spjäll är inte luft.</p>
+    <table class="fb" id="loop"></table>
+  </div>
+
+  <h3>Styrning</h3>
+  <p style="color:var(--mu);margin-top:0">Auto följer trösklar. På och Av är manuellt. LED På utanför 06–20 är ett medvetet avsteg så jag kan prova armaturen. Givarfel och utebliven återkoppling går inte att köra över.</p>
+  <div class="grid acts" id="acts"></div>
+  <div class="card" style="margin-top:16px" id="beds"></div>
+  <div class="card" style="margin-top:12px">
+    <p class="label">Händelselogg</p>
+    <ol id="log" style="margin:8px 0 0;padding-left:18px"></ol>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <p class="label">Vad som är simulerat</p>
+    <p id="scope"></p>
+  </div>
+
+  <article>
+    <h1 style="color:var(--g)">Om FCL</h1>
+    <p>Växttält · digital tvilling</p>
+
+    <h2>A. Inledning – syfte och förutsättningar</h2>
+    <p>Jag odlar gärna, men utomhusklimatet har blivit så nyckfullt att jag tröttnat på att gissa. Därför odlar jag i ett växttält hemma. Chili och paprika är samma familj och vill ha varm luft och starkt ljus, så de står tillsammans. Dvärgtomater passar in i samma klimat och växer kompakt. Jordgubbarna har jag i amplar på lägre nivå, så de inte skuggar de andra.</p>
+    <p>Syftet med FCL är att tältet ska hålla klimatet själv, spara vatten och el, och säga till när jag ska skörda. Jag har en Raspberry Pi 5 med 16 GB som huvuddator. Innan reläerna styr på riktigt provar jag samma logik i en digital tvilling.</p>
+
+    <h2>B. Identifiera behoven</h2>
+    <p>I tältet skapar jag klimatet själv, så jag måste mäta det jag vill styra. Temperaturen är grunden: för kallt stannar tillväxten, för varmt blir plantan stressad och kvaliteten sjunker. Luftfukten styr hur plantan andas och om det börjar mögla. Jordfukt säger om rötterna får vatten utan att stå blöta. Ljus är fotosyntesen – tältet har inget dagsljus att lita på. CO<sub>2</sub> är det plantan bygger massa av. Ventilation och dropp är det jag styr tillbaka.</p>
+    <p>Chili och paprika vill ha ungefär samma klimat, men varje kruka har egen jordgivare. Jag vill också se frukten, inte bara luften. Därför ska kameran i taket, eller en färgsensor vid frukten, säga när det är dags att skörda.</p>
+
+    <h2>C. Välj rätt sensorer</h2>
+    <p>Jag har valt givare efter hur de mäter, vad de kostar och var de sitter så de inte ljuger för styrsystemet.</p>
+    <table>
+      <tr><th>Parameter</th><th>Sensortyp</th><th>Placering</th><th>Motivering</th></tr>
+      <tr><td>Temperatur</td><td>SHT40 digital</td><td>Tak, mitt i tältet</td><td>Noggrann I²C. Högt ger medelvärde, inte LED-fläck.</td></tr>
+      <tr><td>Luftfukt</td><td>SHT40 kapacitiv</td><td>Samma nod</td><td>En givare, två mätningar. Tål tältklimat.</td></tr>
+      <tr><td>Jordfukt</td><td>Capacitive v2.0</td><td>Varje kruka/ampel</td><td>Korroderar inte. En per kultur.</td></tr>
+      <tr><td>Ljus</td><td>BH1750 optisk</td><td>LED-skena, 1,4 m</td><td>Lux styr LED. PPFD delas i sol och LED. DLI summeras över tid.</td></tr>
+      <tr><td>CO<sub>2</sub></td><td>SCD40 NDIR</td><td>Tältsida</td><td>Över 1000 ppm öppnar frånluft. Av under 800. Mot ute cirka 420.</td></tr>
+      <tr><td>Ventilation</td><td>T, RH och CO<sub>2</sub></td><td>Frånluft + cirkulation</td><td>Tre villkor. CO<sub>2</sub> har egen hysteres.</td></tr>
+      <tr><td>Bevattning</td><td>Jord per kultur</td><td>Egen ventil per bädd</td><td>Start 55 %, stopp 70 %. Inte ett gemensamt värde.</td></tr>
+      <tr><td>Växtstatus / skörd</td><td>Pi NoIR Cam 3</td><td>Tältaket</td><td>CMOS utan IR-filter. Kalibrerad fruktfärg.</td></tr>
+      <tr><td>Mognad (backup)</td><td>TCS34725 RGB</td><td>Frukthöjd / ampel</td><td>Optisk backup när kameran är skymd.</td></tr>
+      <tr><td>pH</td><td>Atlas-elektrod</td><td>Bevattningstank</td><td>Kemisk kontroll av näring.</td></tr>
+    </table>
+
+    <h2>D. Sensortekniken</h2>
+    <p>Jag har tittat på mätprincipen, inte bara produktnamnet. Kapacitiv sitter i SHT40 och jordgivarna. BH1750 mäter lux, ljus som ögat uppfattar, och det räcker för att tända LED. Växter räknar fotoner. PPFD är flödet just nu, DLI är summan över dygnet. Sol och vit odlings-LED har inte samma spektrum, så jag räknar dem var för sig: cirka 18,5 µmol per klx för dagsljus och cirka 15 för lysdioden. Det är fortfarande en uppskattning, inte en PAR-givare. DLI i demon är summan av PPFD gånger tid, inte PPFD gånger 14 timmar. En PAR-sensor vid bladhöjd är nästa steg om jag vill styra på fotoner. SCD40 är NDIR. TCS34725 läser färg på frukt. pH är en elektrod i tanken.</p>
+    <p>Kameran är en Raspberry Pi NoIR Cam 3, en CMOS utan IR-filter. Utan kalibrering blir bilden magenta, så jag kör vitbalans och färgmatris i mjukvaran på Pi 5. Samma kalibrerade färg använder jag för att se om frukten är mogen.</p>
+
+    <h2>E. Systemarkitektur</h2>
+    <p>Allt går genom min Pi 5. Sensorer och kamera in, reläer ut. Pi:n kör MQTT, libcamera och IF–THEN lokalt. FCL är dashboarden på samma burk. Om wifit dör ska tältet leva vidare – moln är ett plus, inte ett krav. Jag vill ha inloggning så inte vem som helst tänder värmen.</p>
+    <p>Flödet är:</p>
+    <div class="flow"><b>Mätning</b> → <b>Beslut</b> → <b>Kommando</b> → <b>Återkoppling</b> → <b>FCL</b></div>
+    <p class="cap">Figur 1. Tre nivåer. Pi 5 jämför önskat läge med faktiskt läge innan den litar på att aktuatorn gick.</p>
+    <p>Regler jag kör, och som demon följer: under 20 °C ger värme. Över 28 °C eller RH över 75 % ger frånluft. CO<sub>2</sub> över 1000 ppm ger också frånluft, och den stannar först under 800 ppm. När frånluften går blandas luften mot cirka 420 ppm ute. Upptaget skalas med PPFD och respirationen med temperaturen. Det är en pedagogisk modell, inte en riktig klimatmodell. Varje bädd har egen droppventil: under 55 % startar, cirka 70 % stoppar. En tyst jordgivare stänger bara den bädden. LED i auto tänds bara 06–20 och bara under 20 klx. Manuell På får tända utanför fönstret, med flit, så jag kan prova lampan. Det är inte ett säkerhetsundantag. Om temperaturgivaren tystnar tvingas värmen av, även om jag trycker På. Fruktfärg över 85 % ger skördelarm.</p>
+    <p>Nivå 3 skiljer relä, ändläge och process. I version 1.9 har varje bädd en egen flödesgivare, skild från det verkliga zonflödet. NOVA-referensen dras bara när höjden räknas, inte när avståndet skapas. Nollställning sparar dagräknaren, så omladdning inte tar tillbaka en gammal dag. Pumpströmmen i filen är fortfarande tvillingens modell, inte en tångamperemeter. Testprotokollet kör felen ett i taget och skriver vad som skulle upptäckas, vad som upptäcktes och vilket skydd som gäller. Historiken i den publicerade filen ligger i besökarens webbläsare. Den är inte gemensam. En riktig anläggning med reläer ska ha behörighet på Pi, inte i HTML.</p>
+
+    <h2>F. Design av dashboard</h2>
+    <p>Jag vill se ärvärde mot börvärde, larm, rum mot tält, historik och att jag kan ta över med Auto, På eller Av. Kameran jämför kalibrerad bild mot TCS34725 så jag ser när det är dags att skörda. I den här demon är kamerabilden, färgkalibreringen och mognadsprocenten simulerade tal – inte en riktig NoIR-bild. Trösklarna är däremot de jag tänker köra på Pi 5. Utan den vyn kan automation köra fel utan att jag märker det. Tvillingen ovan är den klickbara versionen. Wireframen under är ritningsunderlaget.</p>
+    <div class="wire">
+      <div><span class="label">Klimat</span><br>Temp, RH, jord, ljus, CO<sub>2</sub> mot börvärde</div>
+      <div><span class="label">Tältskiss</span><br>Plantor, LED, dropp, frukt</div>
+      <div><span class="label">Larm / skörd</span><br>Hetta, torka, mogen frukt</div>
+      <div><span class="label">Styrkort</span><br>Auto / På / Av per aktuator</div>
+      <div><span class="label">Kamera</span><br>Raw / kalibrerad NoIR vs TCS34725</div>
+      <div><span class="label">Historik</span><br>Tidsserie för trend och underhåll</div>
+    </div>
+    <p class="cap">Figur 2. Wireframe för FCL: struktur, innehåll och flöden – inte grafisk detaljering.</p>
+
+    <h2>G. Utvecklingsmöjligheter</h2>
+    <p>Om jag skaffar fler tält måste varje burk ha ett ID och samma datamodell. AI kommer när datan är ren, inte före. Prediktivt underhåll passar pump och fläkt. LED kan flyttas till billig el. Tvillingen ska testa trösklar innan de går ut i huset.</p>
+
+    <h2>H. Personliga reflektioner</h2>
+    <p>Arbetet har gett mig en stor förståelse för sambanden mellan de olika skillnaderna i alla de scenarier jag tänker att mitt växttält kan hamna i. För att komma till det stadiet jag är i nu med projektet har jag blivit tvungen att gå inifrån: först vilka växter som faktiskt fungerar bäst i grupp i tältet, sen vilka funktioner som verkligen spelar roll. Jag ser nu vad sensorerna faktiskt tar in, och jag lyssnar mer på logiken som sker i hela kedjan – från mätvärde till styrning – än på enstaka givare. Det tar jag med mig.</p>
+  </article>
+</div>
+<script>
+const W={sunny:{t:22,rh:45},cloudy:{t:18,rh:58},heatwave:{t:34,rh:32},cold:{t:8,rh:50},storm:{t:12,rh:80}};
+const SUN_F=18.5, LED_F=15, MOUNT=80;
+const USE={chili:0.10,paprika:0.07,tomat:0.12,jordg:0.05};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function bed(id,name,ripe,soil,h){return {id,name,ripe,soil,trueH:h,h,h0:h,lastValidH:h,ref:0,cam:h,profile:[],novaQ:"ok",drip:false,flow:false,flowActual:0,flowMeasured:0,mode:"auto",fault:false,online:true,relay:"ok",pos:"ok",cmd:false,overfill:false,clog:false,diverge:false};}
+const S={weather:"sunny",T:24,RH:62,soil:64,light:28,amb:48,co2:820,co2On:1000,co2Off:800,co2Latch:false,outCo2:420,
+hour:14,min:0,day:1,speed:5,cam:"cal",tempFault:false,mqtt:true,breaker:false,tank:62,piOk:true,
+element:"ok",fanOk:true,lampOk:true,ventBlocked:false,anemo:"ok",novaFault:"ok",zoneFault:"ok",flowFault:"ok",flowStuckAt:2.4,currentFault:"ok",currentStuckAt:1.8,pumpLoad:"ok",pumpLock:false,pumpMin:0,noFlowMin:0,tripWhy:"",
+mainLock:false,supplyCut:false,hwFloat:false,hwElement:false,dT:0,elementT:24,amps:0,pumpAmps:0,pumpCurrentActual:0,pumpCurrentMeasured:0,rpm:0,airEstimated:0,airMeasured:0,headerActual:0,headerMeasured:0,luxLed:0,tick:0,
+mode:{heat:"auto",vents:"auto",fan:"auto",drip:"auto",lights:"auto"},
+dev:{heat:{relay:"ok",pos:"ok",online:true},vents:{relay:"ok",pos:"ok",online:true},fan:{relay:"ok",pos:"ok",online:true},lights:{relay:"ok",pos:"ok",online:true},pump:{relay:"ok",pos:"ok",online:true}},
+main:{relay:"ok",pos:"ok",online:true},supply:{relay:"ok",pos:"ok",online:true},nova:[],
+beds:[bed("chili","Chili",72,48,22),bed("paprika","Paprika",81,66,18),bed("tomat","Dvärgtomat",54,74,16),bed("jordg","Jordgubbar",88,42,8)],
+log:[],sig:"",notes:[],gaps:[],hist:[],protocol:[],ppfd:0,ppfdSun:0,ppfdLed:0,dli:0,dliSun:0,dliLed:0,dliSec:0,co2Mix:0,co2Up:0,co2Resp:0};
+function ambient(){const day=S.hour>=6&&S.hour<20;const map={sunny:48,cloudy:14,heatwave:55,cold:10,storm:5};return day?(map[S.weather]||20):0.5;}
+function clock(){return String(S.hour).padStart(2,"0")+":"+String(S.min).padStart(2,"0");}
+function logLine(text){const line=clock()+" · "+text;if(S.log[0]===line)return;S.log.unshift(line);if(S.log.length>16)S.log.pop();}
+function phys(cmd,relay,pos){let coil=!!cmd;if(relay==="closed")coil=true;if(relay==="open")coil=false;let place=coil;if(pos==="open")place=true;if(pos==="closed")place=false;return {relay:coil,position:place};}
+function layer(cmd,dev){const body=phys(dev.online?cmd:false,dev.relay,dev.pos);if(!dev.online)return {command:!!cmd,relay:null,position:null,process:false};return {command:!!cmd,relay:body.relay,position:body.position,process:false};}
+function yn(v){return v===null?"okänd":v?"på":"av";}
+function freshDev(){return {heat:{relay:"ok",pos:"ok",online:true},vents:{relay:"ok",pos:"ok",online:true},fan:{relay:"ok",pos:"ok",online:true},lights:{relay:"ok",pos:"ok",online:true},pump:{relay:"ok",pos:"ok",online:true}};}
+function novaChannels(){
+  const ch=[];
+  S.beds.forEach((b,i)=>{
+    for(let k=0;k<5;k++){
+      let d=+(MOUNT-(b.trueH-k*0.4)).toFixed(1);
+      let q="ok";
+      if(S.novaFault==="dead"){d=MOUNT;q="miss";}
+      else if(S.novaFault==="miss"&&i===0&&k===2){d=MOUNT;q="miss";}
+      else if(S.novaFault==="spike"&&i===0&&k===1){d=+(d-15).toFixed(1);q="spike";}
+      ch.push({d,q});
+    }
+  });
+  return ch;
+}
+function readNova(ch){
+  if(!ch||ch.length!==20||typeof ch[0]!=="object")return;
+  S.nova=ch.map(c=>({d:c.d,q:c.q}));
+  S.beds.forEach((b,i)=>{
+    const slice=ch.slice(i*5,i*5+5);
+    const valid=slice.filter(c=>c.q==="ok");
+    b.profile=slice;
+    const use=valid.length?valid:slice.filter(c=>c.q!=="miss"&&c.q!=="spike");
+    if(!use.length){
+      b.novaQ="ingen träff";
+      if(typeof b.h==="number")b.lastValidH=b.h;
+      b.h=null;
+      b.diverge=false;
+    }else{
+      b.h=+(MOUNT-Math.min(...use.map(c=>c.d))-b.ref).toFixed(2);
+      b.lastValidH=b.h;
+      b.novaQ=valid.length<3?"osäker":(slice.some(c=>c.q!=="ok")?"filtrerad":"ok");
+      b.diverge=Math.abs((b.h-b.h0)-(b.cam-b.h0))>0.6;
+    }
+  });
+}
+function isoStamp(){
+  const utcGuess=new Date(Date.UTC(2026,10,24+(S.day-1),S.hour,S.min,0));
+  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Stockholm",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(utcGuess);
+  const g=k=>+parts.find(p=>p.type===k).value;
+  const shown=Date.UTC(g("year"),g("month")-1,g("day"),g("hour"),g("minute"));
+  return new Date(utcGuess.getTime()-(shown-utcGuess.getTime())).toISOString().slice(0,19)+"Z";
+}
+function localStamp(iso){
+  return new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Stockholm",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso));
+}
+function saveHist(){try{localStorage.setItem("fcl18-hist",JSON.stringify({day:S.day,hist:S.hist}));}catch(e){}}
+function loadHist(){try{const raw=localStorage.getItem("fcl18-hist");if(!raw)return;const o=JSON.parse(raw);if(Array.isArray(o.hist))S.hist=o.hist.slice(0,400);if(o.day)S.day=o.day;}catch(e){}}
+function pushRows(rows){if(!rows.length)return;S.hist=rows.concat(S.hist).slice(0,400);saveHist();}
+function sampleAt(rate){
+  const t=isoStamp();
+  const rows=[];
+  if(rate==="fast"){
+    rows.push({t,plant:"talt",nod:"pump-strom-matt",v:S.pumpCurrentMeasured,unit:"A",q:S.pumpCurrentMeasured==null?"tyst":"ok",cal:"-"});
+    rows.push({t,plant:"talt",nod:"pump-strom-verklig",v:S.pumpCurrentActual,unit:"A",q:"modell",cal:"-"});
+    rows.push({t,plant:"talt",nod:"flode-matt",v:S.headerMeasured,unit:"l/min",q:S.headerMeasured==null?"tyst":(Math.abs(S.headerMeasured-S.headerActual)>0.4?"matfel":"ok"),cal:"-"});
+    rows.push({t,plant:"talt",nod:"flode-verkligt",v:S.headerActual,unit:"l/min",q:"modell",cal:"-"});
+  }
+  if(rate==="klimat"){
+    rows.push({t,plant:"talt",nod:"sht40",v:+S.T.toFixed(2),unit:"C",q:S.tempFault?"tyst":"ok",cal:"fabrik"});
+    rows.push({t,plant:"talt",nod:"scd40",v:Math.round(S.co2),unit:"ppm",q:"ok",cal:"fabrik"});
+    rows.push({t,plant:"talt",nod:"luft-matt",v:S.airMeasured,unit:"m3/h",q:S.airMeasured==null?"tyst":"ok",cal:"anemo"});
+    rows.push({t,plant:"talt",nod:"luft-uppskattad",v:S.airEstimated,unit:"m3/h",q:"modell",cal:"-"});
+    S.beds.forEach(b=>rows.push({t,plant:b.id,nod:"jord",v:Math.round(b.soil),unit:"%",q:b.fault?"tyst":"ok",cal:"cap"}));
+  }
+  if(rate==="vaxt"){
+    S.beds.forEach(b=>{
+      rows.push({t,plant:b.id,nod:"nova20",v:b.h,unit:"cm",q:b.novaQ,cal:"ref "+b.ref+" cm"});
+      rows.push({t,plant:b.id,nod:"kamera",v:+b.cam.toFixed(2),unit:"index",q:S.cam==="cal"?"kal":"raw",cal:S.cam});
+    });
+  }
+  pushRows(rows);
+}
+function track(){
+  const list=[];
+  if(S.overtemp)list.push("Övertemperatur. Värme spärrad, även på På.");
+  if(S.dry)list.push("Torrkörning. Nivå under 8 %.");
+  if(S.pumpLock)list.push("Pump spärrad efter "+(S.tripWhy||"tidsgräns")+". Räknat i hela minuter.");
+  if(S.mainLock)list.push("Huvudventil beordrad stängd. En zonventil räcker inte.");
+  if(S.supplyCut){
+    list.push("Kontaktorn har fått frånslag.");
+    list.push(S.pumpCurrentActual>0.3?"Pumpen drar fortfarande "+S.pumpCurrentActual.toFixed(1)+" A.":"Pumpen drar ingen ström.");
+    list.push(S.headerActual>0.2?"Verkligt flöde fortsätter, "+S.headerActual.toFixed(1)+" l/min.":"Verkligt flöde har upphört.");
+  }
+  if(S.pumpCurrentMeasured==null)list.push("Strömgivaren är tyst. Pumpströmmen kan inte verifieras.");
+  else if(S.pumpCurrentActual>0.5&&S.pumpCurrentMeasured<0.2)list.push("Pumpen går men strömgivaren visar noll. Mätfel, inte ett stopp.");
+  else if(S.pumpCurrentMeasured>4)list.push("Överström i pumpen. Det är en belastning, inte ett givarfel.");
+  if(S.headerMeasured==null)list.push(S.headerActual>0.2?"Flödesgivaren är tyst. Verkligt flöde finns, men det kan inte verifieras.":"Flödesgivaren är tyst. Flödet kan inte verifieras.");
+  else if(Math.abs(S.headerMeasured-S.headerActual)>0.4)list.push("Flödesgivaren stämmer inte med verkligt flöde. Mätfel, inte ett processfel.");
+  else if(S.pumpCurrentActual>0.5&&S.headerActual<0.2)list.push("Pumpen går men verkligt flöde är noll.");
+  if(S.hwFloat)list.push("Nivåvippan bröt pumpen. Den sitter i ledningen, inte i Pi.");
+  if(S.hwElement)list.push("Elementtermostaten bröt värmaren. Den är inte beroende av Pi.");
+  if(!S.piOk)list.push("Pi svarar inte. Hårdvaruskydden gäller ändå.");
+  if(S.airMeasured==null)list.push("Anemometern är tyst. Luftflödet är okänt.");
+  else if(Math.abs(S.airMeasured-S.airEstimated)>30)list.push("Uppmätt luft och uppskattad luft stämmer inte.");
+  if(S.breaker)list.push("Säkring utlöst. Spolar från.");
+  if(!S.mqtt)list.push("MQTT borta. Lokal styrning fortsätter.");
+  if(S.tempFault)list.push("Temperaturgivare tyst.");
+  if(S.lightBypass)list.push("LED manuellt utanför 06–20. Driftavsteg, inte skydd.");
+  if(S.amps>0.5&&S.dT<0&&(S.vents||S.fan))list.push("Värmaren drar ström. Tältet kyls. Det är inte ett elementfel.");
+  if(S.layers.heat.relay===true&&S.amps<0.2)list.push("Värmare spänningssatt men ingen ström.");
+  if(S.layers.vents.position===true&&S.layers.vents.process===false)list.push("Frånluft: spjäll öppet, uppmätt luftflöde räcker inte.");
+  [["heat","Värme"],["vents","Frånluft"],["fan","Fläkt"],["lights","LED"],["pump","Pump"]].forEach(([id,name])=>{
+    const L=S.layers[id];
+    if(L.relay===null)list.push(name+": ingen kontakt.");
+    else if(L.process===null)list.push(name+": processen kan inte verifieras.");
+    else if(!!L.command!==!!L.process)list.push(name+": kommando "+(L.command?"på":"av")+", process "+(L.process?"på":"av")+".");
+  });
+  S.beds.forEach(b=>{
+    if(b.fault)list.push(b.name+": jordgivare tyst.");
+    if(!b.online)list.push(b.name+": ventilnod borta.");
+    if(b.flowMeasured==null)list.push(b.name+": zonflödesgivare tyst. Zonflödet kan inte verifieras.");
+    else if((b.flowMeasured>0)!==(b.flowActual>0))list.push(b.name+": zonflödesgivaren stämmer inte med verkligt flöde. Mätfel, inte ett processfel.");
+    else if(b.cmd&&b.flowActual===0)list.push(b.name+": öppet kommando, verkligt zonflöde är noll.");
+    else if(!b.cmd&&b.flowActual>0)list.push(b.name+": kommando stängt, verkligt flöde kvar.");
+    if(b.diverge)list.push(b.name+": LiDAR-simulering och kameran stämmer inte. Inte en diagnos.");
+    if(b.novaQ==="ingen träff")list.push(b.name+": ingen aktuell höjd. Senaste giltiga "+(typeof b.lastValidH==="number"?b.lastValidH.toFixed(1)+" cm":"saknas")+".");
+    else if(b.novaQ&&b.novaQ!=="ok")list.push(b.name+": NOVA-kanal "+b.novaQ+". Höjden tar bara giltiga träffar.");
+  });
+  const prev=new Set(S.sig?S.sig.split("\n"):[]);
+  const now=new Set(list);
+  list.forEach(t=>{if(!prev.has(t))logLine(t);});
+  prev.forEach(t=>{if(!now.has(t))logLine("Återställning: "+t);});
+  S.sig=list.join("\n");
+  S.notes=list;
+}
+function decide(){
+  const amb=ambient();
+  const day=S.hour>=6&&S.hour<20;
+  const climate=S.T>28||S.RH>75;
+  S.co2Latch=S.co2Latch?S.co2>S.co2Off:S.co2>S.co2On;
+  const want={heat:S.T<20,vents:climate||S.co2Latch,fan:S.T>28||S.RH>70||S.co2Latch,lights:day&&amb<20};
+  if(!S.piOk){want.heat=false;want.vents=false;want.fan=false;want.lights=false;}
+  else{
+    for(const k of Object.keys(want)){
+      if(S.mode[k]==="on")want[k]=true;
+      if(S.mode[k]==="off")want[k]=false;
+    }
+  }
+  S.overtemp=S.T>=36;
+  if(S.tempFault||S.overtemp)want.heat=false;
+  if(S.breaker){want.heat=false;want.vents=false;want.fan=false;want.lights=false;}
+  S.lightBypass=!!(want.lights&&!day&&S.mode.lights==="on"&&!S.breaker);
+  S.dry=S.tank<=8;
+  const cmds=S.beds.map(b=>{
+    let cmd=b.flow?b.soil<70:b.soil<55;
+    if(b.fault||S.mode.drip==="off"||b.mode==="off")cmd=false;
+    else if(S.mode.drip==="on"||b.mode==="on")cmd=true;
+    b.overfill=b.soil>=88;
+    if(b.overfill||S.breaker||!S.piOk)cmd=false;
+    return cmd;
+  });
+  const pumpCmd=S.piOk&&cmds.some(Boolean)&&!S.dry&&!S.breaker&&!S.pumpLock;
+  S.layers={
+    heat:layer(want.heat,S.dev.heat),
+    vents:layer(want.vents,S.dev.vents),
+    fan:layer(want.fan,S.dev.fan),
+    lights:layer(want.lights,S.dev.lights),
+    pump:layer(pumpCmd,S.dev.pump)
+  };
+  S.hwElement=S.elementT>=75?true:(S.elementT<60?false:S.hwElement);
+  S.amps=(S.layers.heat.relay===true&&S.element==="ok"&&!S.hwElement)?4.2:0;
+  S.rpm=(S.layers.fan.relay===true&&S.fanOk)?1450:0;
+  S.luxLed=(S.layers.lights.relay===true&&S.lampOk)?28:0;
+  const damper=S.layers.vents.position===true;
+  S.airEstimated=damper&&!S.ventBlocked?(S.rpm>=400?140:8):0;
+  S.airMeasured=S.anemo==="silent"?null:S.anemo==="stuck"?140:S.airEstimated;
+  S.layers.heat.process=S.amps>0.5;
+  S.layers.fan.process=S.rpm>=400;
+  S.layers.lights.process=S.luxLed>=5;
+  S.layers.vents.process=S.airMeasured==null?null:S.airMeasured>=40;
+  S.cmd=want;
+  S.heat=S.amps>0.5;
+  S.fan=S.rpm>=400;
+  S.lights=S.luxLed>=5;
+  S.vents=S.airEstimated>=40;
+  S.beds.forEach((b,i)=>{
+    b.cmd=cmds[i];
+    const v=layer(b.cmd,{relay:b.relay,pos:b.pos,online:b.online});
+    b.relayFb=v.relay;b.posFb=v.position;
+  });
+  const zoneLeak=S.beds.some(b=>b.posFb===true&&!b.cmd);
+  const overPath=S.beds.some(b=>b.posFb===true&&b.soil>=88);
+  if(zoneLeak||overPath)S.mainLock=true;
+  const mainCmd=!S.mainLock&&!S.breaker;
+  S.mainLayer=layer(mainCmd,S.main);
+  S.mainOpen=S.mainLayer.position===true;
+  if(S.mainLock&&S.mainOpen&&(zoneLeak||overPath))S.supplyCut=true;
+  const powerCmd=!S.supplyCut&&!S.breaker;
+  S.supplyLayer=layer(powerCmd,S.supply);
+  S.power=S.supplyLayer.position===true;
+  S.hwFloat=S.tank<=8;
+  const pumpElect=S.power&&S.layers.pump.relay===true;
+  S.pumpCurrentActual=S.hwFloat?0:(pumpElect?(S.pumpLoad==="over"?6.4:1.8):0);
+  S.pumpAmps=S.pumpCurrentActual;
+  S.pumpCurrentMeasured=S.currentFault==="silent"?null:S.currentFault==="zero"?0:S.currentFault==="stuck"?S.currentStuckAt:S.pumpCurrentActual;
+  const pumping=S.pumpCurrentActual>0.5;
+  S.beds.forEach(b=>{
+    b.flowActual=(S.mainOpen&&b.posFb===true&&pumping&&S.tank>0&&!b.clog)?1.2:0;
+    b.flow=b.flowActual>0;
+    if(S.zoneFault==="silent"&&b.id==="chili")b.flowMeasured=null;
+    else if(S.zoneFault==="lie"&&b.id==="chili")b.flowMeasured=b.flowActual>0?0:1.2;
+    else b.flowMeasured=b.flowActual;
+  });
+  S.headerActual=+S.beds.reduce((n,b)=>n+b.flowActual,0).toFixed(1);
+  S.headerMeasured=S.flowFault==="silent"?null:S.flowFault==="stuck"?S.flowStuckAt:S.flowFault==="lie"?(S.headerActual>0?0:9.9):S.headerActual;
+  S.layers.pump.process=S.pumpCurrentMeasured==null?null:S.pumpCurrentMeasured>0.3;
+  const live=S.beds.filter(b=>!b.fault);
+  if(live.length)S.soil=live.reduce((n,b)=>n+b.soil,0)/live.length;
+  const ledKlx=S.lights?S.luxLed:0;
+  S.amb=amb;S.light=+(amb+ledKlx).toFixed(1);
+  S.ppfdSun=Math.round(amb*SUN_F);S.ppfdLed=Math.round(ledKlx*LED_F);S.ppfd=S.ppfdSun+S.ppfdLed;
+  readNova(novaChannels());
+  track();
+}
+function minute(){
+  S.min+=1;
+  if(S.min>=60){S.min=0;S.hour=(S.hour+1)%24;if(S.hour===0){S.day+=1;S.dli=S.dliSun=S.dliLed=S.dliSec=0;saveHist();logLine("Nytt dygn. DLI nollställd.");}}
+  decide();
+  const prevT=S.T;
+  const o=W[S.weather];
+  const dt=1/60;
+  S.T+=(S.heat?1.8:0)*dt+(o.t-S.T)*0.2*dt;
+  if(S.vents||S.fan){S.T-=1.1*dt;S.RH-=3*dt;}
+  S.RH+=(o.rh-S.RH)*0.15*dt;
+  S.dT=S.T-prevT;
+  if(S.amps>0.5)S.elementT+=(58-S.elementT)*0.35;else S.elementT+=(S.T-S.elementT)*0.25;
+  if(S.pumpAmps>0.5){
+    S.pumpMin+=1;
+    if(S.beds.some(b=>b.flow))S.noFlowMin=0;else S.noFlowMin+=1;
+    if(!S.pumpLock&&(S.noFlowMin>=2||S.pumpMin>=20)){S.pumpLock=true;S.tripWhy=S.noFlowMin>=2?"inget flöde i "+S.noFlowMin+" min":"gång i "+S.pumpMin+" min";}
+  }else if(!S.pumpLock){S.pumpMin=0;S.noFlowMin=0;}
+  const k=S.vents?0.55:0.05;
+  S.co2Mix=(S.outCo2-S.co2)*k*dt;
+  S.co2Up=(S.ppfd>20?S.ppfd*0.12:0)*dt;
+  S.co2Resp=22*Math.pow(1.07,(S.T-20)/10)*dt;
+  S.co2=clamp(S.co2+S.co2Mix-S.co2Up+S.co2Resp,350,2000);
+  S.dliSec+=60;S.dliSun+=S.ppfdSun*60/1e6;S.dliLed+=S.ppfdLed*60/1e6;S.dli=S.dliSun+S.dliLed;
+  let flows=0;
+  S.beds.forEach(b=>{
+    if(b.flow)flows++;
+    if(!b.fault)b.soil=clamp(b.soil+(b.flow?10:-(USE[b.id]||0.08)*14)*dt,18,96);
+    const good=S.T>18&&S.T<32&&b.soil>40&&S.ppfd>80;
+    const rise=(good?0.35:0.04)*dt;
+    b.trueH=+(b.trueH+rise).toFixed(2);
+    b.cam=+(b.cam+(S.cam==="cal"?rise:rise*0.15)).toFixed(2);
+    const h=(S.T>18&&S.T<32&&b.soil>45)?1:0.3;
+    b.ripe=clamp(b.ripe+0.5*h*dt,8,99);
+  });
+  readNova(novaChannels());
+  S.beds.forEach(b=>{if(typeof b.h==="number")b.diverge=Math.abs((b.h-b.h0)-(b.cam-b.h0))>0.6;});
+  S.tank=clamp(S.tank-flows*14*dt+0.15*dt,0,100);
+  S.T=clamp(S.T,6,46);S.RH=clamp(S.RH,25,95);
+  S.tick+=1;
+  sampleAt("fast");
+  if(S.tick%5===0)sampleAt("klimat");
+  if(S.tick%30===0)sampleAt("vaxt");
+}
+function step(){
+  if(S.speed===0){decide();render();return;}
+  for(let i=0;i<S.speed;i++)minute();
+  decide();render();
+}
+function render(){
+  const proj=((S.ppfd*14*3600)/1e6).toFixed(1);
+  const hours=(S.dliSec/3600).toFixed(1);
+  const proc={
+    heat:S.amps.toFixed(1)+" A",
+    vents:S.airMeasured==null?"okänd":S.airMeasured+" m3/h",
+    fan:S.rpm+" rpm",
+    lights:S.luxLed+" klx",
+    pump:S.pumpCurrentMeasured==null?"okänd":S.pumpCurrentMeasured.toFixed(1)+" A"
+  };
+  document.getElementById("sensors").innerHTML=[
+    ["Temp",S.tempFault?"tyst":S.T.toFixed(1)+" °C",S.overtemp?"skydd 36 °C aktivt":"tältluft, inte element"],
+    ["ΔT tält",S.dT.toFixed(2)+" °C","får inte ensam döma värmaren"],
+    ["Värmeström",S.amps.toFixed(1)+" A",S.hwElement?"termostat bröt, inte Pi":"elektrisk process"],
+    ["Element",S.elementT.toFixed(0)+" °C",S.hwElement?"spärr vid 75 °C":"nära värmaren"],
+    ["Luft uppskattad",S.airEstimated+" m3/h","från spjäll och varv, inte process"],
+    ["Luft uppmätt",S.airMeasured==null?"okänd":S.airMeasured+" m3/h",S.airMeasured==null?"okänt är inte noll":"anemometer"],
+    ["Varv",S.rpm+" rpm","fläktens process"],
+    ["Luftfukt",S.RH.toFixed(0)+" %","bör 60"],
+    ["Tank",S.tank.toFixed(0)+" %",S.hwFloat?"nivåvippa bröt pumpen":"spärr under 8 %"],
+    ["BH1750",S.light.toFixed(0)+" klx",S.lightBypass?"manuellt avsteg":"lux i tältet"],
+    ["Ljus vid LED",S.luxLed+" klx","process för lampan"],
+    ["PPFD sol",S.ppfdSun+" µmol","×18,5 dagsljus"],
+    ["PPFD LED",S.ppfdLed+" µmol","×15 vit LED"],
+    ["DLI",S.dli.toFixed(2)+" mol","summerat "+hours+" h"+(S.gaps.length?" · lucka":"")],
+    ["Flöde efter pump",S.headerMeasured==null?"okänd":S.headerMeasured.toFixed(1)+" l/min","verkligt "+S.headerActual.toFixed(1)],
+    ["Pumpström",S.pumpCurrentMeasured==null?"okänd":S.pumpCurrentMeasured.toFixed(1)+" A","modell "+S.pumpCurrentActual.toFixed(1)+" A · inte en tång"],
+    ["CO2",Math.round(S.co2)+" ppm",S.layers.vents.process===null?"luftflöde okänt":S.layers.vents.process?"uppmätt luft rör sig":"uppmätt luft räcker inte"],
+    ["Klocka","dag "+S.day+" "+clock(),S.speed?S.speed+" min · svensk tid":"paus"],
+    ["MQTT",S.mqtt?"uppe":"borta","lokalt om länken dör"],
+    ["Huvudventil",S.mainOpen?"öppen":"stängd",S.supplyCut?(S.power?"kontaktor fast, se ström och flöde":"kontaktor bröt"):(S.piOk?"beordrad "+(S.mainLock?"stäng":"öppen"):"Pi tyst")]
+  ].map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="val">${x[1]}</div><div class="label">${x[2]}</div></div>`).join("");
+  const al=document.getElementById("alert");
+  al.textContent=S.notes.join(" ");
+  al.className="alert"+(S.notes.length?" show":"");
+  const ripe=Math.max(...S.beds.map(b=>b.ripe));
+  document.getElementById("cam").textContent=(S.cam==="cal"?"Kalibrerad kamera, simulerad.":"Raw NoIR, simulerad och osäker.")+" Mognad "+Math.round(ripe)+" %. NOVA20 är LiDAR-simulering: ett mätplan, 20 kanaler, inte 3D och ingen UART.";
+  document.getElementById("camRaw").className=S.cam==="raw"?"on":"";
+  document.getElementById("camCal").className=S.cam==="cal"?"on":"";
+  document.getElementById("scope").textContent="FCL 1.9. Testprotokollet kör ett fel i taget och skriver vad som ska upptäckas, vad som upptäcktes och vilket skydd som gäller. Varje bädd har en egen flödesgivare, skild från det verkliga zonflödet. NOVA-referensen dras en gång, när höjden räknas. Nollställning sparar dag 1, så omladdning inte tar tillbaka en gammal dag. Pumpströmmen i filen är tvillingens modell, inte en tångamperemeter. Historiken ligger i besökarens webbläsare och är inte gemensam. Reläer på Pi ska ha behörighet på servern, inte i den här HTML-filen.";
+  document.querySelector(".led").setAttribute("fill",S.lights?"#f4e27a":"#9aa");
+  document.querySelector(".sky").setAttribute("fill",S.hour<6||S.hour>=20?"#1c2836":S.weather==="heatwave"?"#f2c572":S.weather==="cold"?"#9bb5cc":S.weather==="storm"?"#6d7c8c":"#87aad0");
+  const xs=[170,270,370,470];
+  document.getElementById("plants").innerHTML=S.beds.map((b,i)=>{
+    const fruit=b.ripe>55?`<circle cx="${xs[i]+10}" cy="230" r="6" fill="#c23"/>`:"";
+    const drop=b.flow?`<circle cx="${xs[i]-8}" cy="250" r="3" fill="#3a7bd5"/>`:"";
+    return `<g><ellipse cx="${xs[i]}" cy="275" rx="28" ry="10" fill="#5a3a22"/><rect x="${xs[i]-3}" y="185" width="6" height="90" fill="#2a5"/><ellipse cx="${xs[i]-12}" cy="205" rx="16" ry="8" fill="#3d6b45"/><ellipse cx="${xs[i]+14}" cy="218" rx="14" ry="7" fill="#4a8"/>${fruit}${drop}<text x="${xs[i]}" y="298" text-anchor="middle" font-size="12" fill="#1a201c">${b.name}</text></g>`;
+  }).join("");
+  document.getElementById("levels").innerHTML=[
+    ["1 · Mätning","Temp, RH, jord, lux, CO₂, ström, varv, luftflöde, flödespuls. Tyst givare används inte som ett friskt värde."],
+    ["2 · Beslut","Hysteres och börvärden. Pi kan vara tyst. Termostat, nivåvippa och kontaktor bryter ändå."],
+    ["3 · Tre lager","Process kan vara på, av eller okänd. Okänd betyder att givaren inte svarar."]
+  ].map(x=>`<div class="card"><p class="label">${x[0]}</p><p style="margin:6px 0 0">${x[1]}</p></div>`).join("");
+  const rows=[["heat","Värme"],["vents","Frånluft"],["fan","Fläkt"],["lights","LED"],["pump","Pump"]];
+  document.getElementById("loop").innerHTML="<tr><th>Enhet</th><th>Kommando</th><th>Relä</th><th>Position</th><th>Process</th></tr>"+rows.map(([id,name])=>{
+    const L=S.layers[id];
+    const bad=L.relay===null||L.process===null||!!L.command!==!!L.process;
+    return `<tr><td>${name}</td><td>${yn(L.command)}</td><td>${yn(L.relay)}</td><td>${yn(L.position)}</td><td class="${bad?"bad":"good"}">${proc[id]}</td></tr>`;
+  }).concat(S.beds.map(b=>{
+    const pulse=b.flowMeasured==null?"okänd":(b.flowMeasured>0?"puls":"ingen puls");
+    const bad=b.flowMeasured==null||(b.flowMeasured>0)!==(b.flowActual>0)||!!b.cmd!==(b.flowActual>0);
+    return `<tr><td>${b.name}</td><td>${yn(b.cmd)}</td><td>${b.online?yn(b.relayFb):"okänd"}</td><td>${b.online?yn(b.posFb):"okänd"}</td><td class="${bad?"bad":"good"}">${pulse}</td></tr>`;
+  })).join("")+"<tr><td>Huvudventil</td><td>"+(S.mainLock?"stäng":"öppen")+"</td><td>"+yn(S.mainLayer.relay)+"</td><td>"+yn(S.mainLayer.position)+"</td><td class=\""+(S.mainOpen?"bad":"good")+"\">"+(S.mainOpen?"vattenväg öppen":"vattenväg stängd")+"</td></tr><tr><td>Kontaktor</td><td>"+(S.supplyCut?"frånslag":"tillslag")+"</td><td>"+yn(S.supplyLayer.relay)+"</td><td>"+yn(S.supplyLayer.position)+"</td><td class=\""+(S.pumpAmps>0.3?"bad":"good")+"\">"+S.pumpAmps.toFixed(1)+" A</td></tr><tr><td>Flöde efter pump</td><td>"+(S.headerMeasured==null?"okänd":S.headerMeasured.toFixed(1)+" l/min")+"</td><td>verkligt</td><td>"+S.headerActual.toFixed(1)+"</td><td class=\""+(S.headerMeasured==null||Math.abs((S.headerMeasured||0)-S.headerActual)>0.4?"bad":"good")+"\">"+(S.headerMeasured==null?"okänt":(Math.abs(S.headerMeasured-S.headerActual)>0.4?"mätfel":"stämmer"))+"</td></tr>";
+  document.getElementById("acts").innerHTML=rows.filter(r=>r[0]!=="pump").map(([id,label])=>{
+    const L=S.layers[id];
+    const locked=(id==="heat"&&(S.overtemp||S.tempFault||S.breaker))||S.breaker;
+    return `<div class="card"><div style="display:flex;justify-content:space-between"><strong>${label}</strong><span class="${L.command!==L.process?"bad":""}">${proc[id]}</span></div><p class="label">Kommando ${yn(L.command)} · relä ${yn(L.relay)} · läge ${yn(L.position)}</p><div class="modes">${["auto","on","off"].map(m=>`<button class="${S.mode[id]===m?"on":""}" data-act="${id}" data-mode="${m}">${m==="auto"?"Auto":m==="on"?"På":"Av"}</button>`).join("")}</div>${locked&&id==="heat"?"<p class='label' style='margin-top:6px'>Skydd vinner över På</p>":""}${id==="lights"&&S.lightBypass?"<p class='label' style='margin-top:6px'>Driftavsteg, inte skydd</p>":""}</div>`;
+  }).join("");
+  const shown=S.hist.slice(0,8).map(h=>`<li>${localStamp(h.t)} svensk · ${h.plant} · ${h.nod} · ${h.v==null?"okänd":h.v} ${h.unit} · ${h.q}</li>`).join("");
+  document.getElementById("beds").innerHTML="<p class='label'>NOVA20 · LiDAR-simulering · ett mätplan · 20 kanaler · inte 3D</p>"+S.beds.map(b=>{
+    const soil=b.fault?"tyst, sista "+Math.round(b.soil)+" %":Math.round(b.soil)+" %";
+    const profile=(b.profile||[]).map(c=>typeof c==="number"?String(c):c.d+" "+(c.q==="ok"?"ok":c.q==="miss"?"miss":c.q==="spike"?"spik":c.q)).join(" · ");
+    const htxt=typeof b.h==="number"?b.h.toFixed(1)+" cm":"Ingen aktuell mätning"+(typeof b.lastValidH==="number"?" – senaste giltiga "+b.lastValidH.toFixed(1)+" cm":"");
+    const pulse=b.flowMeasured==null?"okänd":(b.flowMeasured>0?"puls":"ingen puls");
+    const zoneBad=b.fault||b.flowMeasured==null||(b.flowMeasured>0)!==(b.flowActual>0)||!!b.cmd!==(b.flowActual>0)||b.diverge||b.novaQ!=="ok";
+    return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between"><strong>${b.name}</strong><span class="${zoneBad?"bad":""}">${htxt} · ${b.novaQ} · kamera ${b.cam.toFixed(1)} · ${pulse} · jord ${soil}</span></div><div class="bar"><i style="width:${Math.min(100,b.soil)}%"></i></div><p class="label">Kanaler mot referens ${b.ref} cm · ${profile||"—"}</p><div class="modes">${["auto","on","off"].map(m=>`<button class="${b.mode===m?"on":""}" data-bed="${b.id}" data-bmode="${m}">${m==="auto"?"Auto":m==="on"?"På":"Av"}</button>`).join("")}</div></div>`;
+  }).join("")+"<p class='label' style='margin-top:8px'>Historik · "+S.hist.length+" poster · lagras i UTC, visas i svensk tid · webbläsare, inte SQLite</p><p class='label'>Pi 5: CREATE TABLE matning (ts TEXT, plant_id TEXT, nod TEXT, varde REAL, enhet TEXT, kvalitet TEXT, kalibrering TEXT);</p><ul style='margin:6px 0 0;padding-left:18px'>"+(S.gaps.length?S.gaps.map(g=>`<li>${g}</li>`).join(""):"")+(shown||"<li>Ingen samplad tid ännu.</li>")+"</ul><div class='row'><span class='label' style='align-self:center'>CO2-gräns</span><button data-co2='900'>900</button><button data-co2='1000'>1000</button><button data-co2='1200'>1200</button><button id='fill'>Fyll tank</button><button id='newday'>Nytt dygn</button></div>";
+  document.getElementById("log").innerHTML=S.log.length?S.log.map(l=>`<li>${l}</li>`).join(""):"<li>Inga avvikelser ännu.</li>";
+  document.querySelectorAll("[data-act]").forEach(btn=>btn.onclick=()=>{S.mode[btn.dataset.act]=btn.dataset.mode;decide();render();});
+  document.querySelectorAll("[data-bed]").forEach(btn=>btn.onclick=()=>{const b=S.beds.find(x=>x.id===btn.dataset.bed);if(b)b.mode=btn.dataset.bmode;decide();render();});
+  document.querySelectorAll("[data-co2]").forEach(btn=>btn.onclick=()=>{S.co2On=+btn.dataset.co2;S.co2Off=S.co2On-200;decide();render();});
+  document.getElementById("fill").onclick=()=>{S.tank=80;logLine("Tank fylld till 80 %.");decide();render();};
+  document.getElementById("newday").onclick=()=>{S.dli=S.dliSun=S.dliLed=S.dliSec=0;logLine("DLI nollställd.");render();};
+  document.querySelectorAll("[data-hour]").forEach(b=>b.classList.toggle("on",+b.dataset.hour===S.hour));
+  document.querySelectorAll("[data-speed]").forEach(b=>b.classList.toggle("on",+b.dataset.speed===S.speed));
+  document.querySelectorAll("[data-w]").forEach(b=>b.classList.toggle("on",b.dataset.w===S.weather));
+  const proto=document.getElementById("proto");
+  if(proto){
+    const rows=S.protocol||[];
+    proto.innerHTML="<tr><th>Prov</th><th>Ska upptäcka</th><th>Upptäckte</th><th>Skydd</th><th></th></tr>"+(rows.length?rows.map(r=>`<tr><td>${r.title}</td><td>${r.should}</td><td>${r.found}</td><td>${r.protect}</td><td class="${r.pass?"good":"bad"}">${r.kind==="avgränsning"?"avgränsning":r.pass?"godkänt":"avvikelse"}</td></tr>`).join(""):"<tr><td colspan='5'>Inte kört.</td></tr>");
+  }
+}
+function baseline(){
+  S.weather="sunny";S.T=24;S.RH=62;S.co2=820;S.co2On=1000;S.co2Off=800;S.co2Latch=false;
+  S.hour=14;S.min=0;S.speed=5;S.tempFault=false;S.mqtt=true;S.breaker=false;S.tank=62;S.cam="cal";
+  S.element="ok";S.fanOk=true;S.lampOk=true;S.ventBlocked=false;S.anemo="ok";S.novaFault="ok";S.zoneFault="ok";S.piOk=true;
+  S.flowFault="ok";S.flowStuckAt=2.4;S.currentFault="ok";S.currentStuckAt=1.8;S.pumpLoad="ok";
+  S.pumpLock=false;S.pumpMin=0;S.noFlowMin=0;S.tripWhy="";S.mainLock=false;S.supplyCut=false;S.hwFloat=false;S.hwElement=false;
+  S.dT=0;S.elementT=24;S.amps=0;S.pumpAmps=0;S.pumpCurrentActual=0;S.pumpCurrentMeasured=0;S.rpm=0;S.airEstimated=0;S.airMeasured=0;S.headerActual=0;S.headerMeasured=0;S.luxLed=0;
+  S.dev=freshDev();S.main={relay:"ok",pos:"ok",online:true};S.supply={relay:"ok",pos:"ok",online:true};
+  const hs=[22,18,16,8],soils=[48,66,74,42],ripe=[72,81,54,88];
+  S.beds.forEach((b,i)=>{b.ripe=ripe[i];b.soil=soils[i];b.trueH=hs[i];b.h=hs[i];b.h0=hs[i];b.lastValidH=hs[i];b.ref=0;b.cam=hs[i];b.flow=false;b.flowActual=0;b.flowMeasured=0;b.mode="auto";b.fault=false;b.online=true;b.relay="ok";b.pos="ok";b.clog=false;b.diverge=false;b.novaQ="ok";});
+  readNova(novaChannels());
+  S.mode={heat:"auto",vents:"auto",fan:"auto",drip:"auto",lights:"auto"};
+  S.sig="";
+}
+function markGap(toHour){
+  const from=clock();
+  const dest=String(toHour).padStart(2,"0")+":00";
+  if(from!==dest){
+    const gap="Lucka "+from+"–"+dest+". Den tiden ingår inte i DLI eller historik.";
+    S.gaps.unshift(gap);if(S.gaps.length>4)S.gaps.pop();
+    logLine(gap);
+  }
+  S.hour=toHour;S.min=0;
+}
+document.querySelectorAll("[data-w]").forEach(btn=>btn.onclick=()=>{S.weather=btn.dataset.w;document.querySelectorAll("[data-w]").forEach(b=>b.classList.toggle("on",b===btn));decide();render();});
+document.querySelectorAll("[data-hour]").forEach(btn=>btn.onclick=()=>{markGap(+btn.dataset.hour);decide();render();});
+document.querySelectorAll("[data-speed]").forEach(btn=>btn.onclick=()=>{S.speed=+btn.dataset.speed;logLine(S.speed?"Hastighet "+S.speed+" min per steg. Skyddet räknas fortfarande i 1 min.":"Simulering pausad.");decide();render();});
+document.querySelectorAll("[data-scen]").forEach(btn=>btn.onclick=()=>{
+  const id=btn.dataset.scen;
+  if(id==="ack"){S.mainLock=false;S.pumpLock=false;S.pumpMin=0;S.noFlowMin=0;S.supplyCut=false;S.tripWhy="";logLine("Skydd kvitterat. Larmet kommer tillbaka om felet är kvar.");}
+  else if(id==="wipe"){S.hist=[];try{localStorage.removeItem("fcl18-hist");}catch(e){}logLine("Historiken tömd. Driften är orörd.");}
+  else if(id==="full"){baseline();S.day=1;S.tick=0;S.dli=S.dliSun=S.dliLed=S.dliSec=0;S.log=[];S.gaps=[];saveHist();logLine("Simuleringen nollställd. Dag 1 är sparad. Historiken är kvar.");}
+  else{
+    baseline();
+    if(id==="heat"){S.weather="heatwave";S.T=33;}
+    if(id==="cold"){S.weather="cold";S.T=14;}
+    if(id==="dry"){S.beds[0].soil=36;S.beds[1].soil=62;S.beds[2].soil=78;S.beds[3].soil=40;}
+    if(id==="ripe")S.beds.forEach(b=>b.ripe=92);
+    if(id==="night")markGap(23);
+    if(id==="fault")S.beds[0].fault=true;
+    if(id==="overtemp"){S.T=37.5;S.mode.heat="on";}
+    if(id==="tank")S.tank=4;
+    if(id==="weld"){S.T=37.5;S.mode.heat="on";S.dev.heat.relay="closed";}
+    if(id==="valve"){S.beds[0].pos="open";S.beds[0].soil=92;S.beds.forEach((b,i)=>{if(i)b.soil=36;});}
+    if(id==="main"){S.beds[0].pos="open";S.beds[0].soil=92;S.main.pos="open";S.beds.forEach((b,i)=>{if(i)b.soil=36;});}
+    if(id==="supply"){S.beds[0].pos="open";S.beds[0].soil=92;S.main.pos="open";S.supply.pos="open";S.beds.forEach((b,i)=>{if(i)b.soil=36;});}
+    if(id==="shut"){S.beds[0].pos="closed";S.beds[0].soil=30;}
+    if(id==="clog"){S.beds[0].clog=true;S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="mqtt")S.mqtt=false;
+    if(id==="co2"){S.co2=1400;S.co2Latch=false;S.mode.vents="auto";}
+    if(id==="breaker")S.breaker=true;
+    if(id==="anemo"){S.anemo="silent";S.mode.vents="on";S.mode.fan="on";}
+    if(id==="anemo-stuck"){S.anemo="stuck";S.mode.vents="off";S.mode.fan="off";}
+    if(id==="spike")S.novaFault="spike";
+    if(id==="nova-dead")S.novaFault="dead";
+    if(id==="pi")S.piOk=false;
+    if(id==="pi-heat"){S.piOk=false;S.elementT=80;S.dev.heat.relay="closed";}
+    if(id==="pi-float"){S.piOk=false;S.tank=4;S.dev.pump.relay="closed";S.supply.pos="open";}
+    if(id==="pi-both"){S.piOk=false;S.elementT=80;S.tank=4;S.dev.heat.relay="closed";S.dev.pump.relay="closed";S.supply.pos="open";}
+    if(id==="noflo"){S.beds[0].clog=true;S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="flow-lie"){S.flowFault="lie";S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="flow-stuck"){S.flowFault="stuck";S.flowStuckAt=2.4;S.beds.forEach(b=>b.soil=75);}
+    if(id==="flow-silent"){S.flowFault="silent";S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="amp-zero"){S.currentFault="zero";S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="amp-over"){S.pumpLoad="over";S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});}
+    if(id==="temp"){S.tempFault=true;S.mode.heat="on";S.T=16;}
+    if(id==="reset"){S.log=[];S.gaps=[];logLine("Driften återställd. Kameran är kalibrerad. Historiken är kvar.");}
+    else logLine("Scenario "+btn.textContent.trim()+" från känt läge.");
+  }
+  document.querySelectorAll("[data-w]").forEach(b=>b.classList.toggle("on",b.dataset.w===S.weather));
+  decide();render();
+});
+document.getElementById("camRaw").onclick=()=>{S.cam="raw";render();};
+document.getElementById("camCal").onclick=()=>{S.cam="cal";render();};
+function runProtocol(){
+  const saved=JSON.parse(JSON.stringify(S));
+  const has=p=>S.notes.some(n=>n.includes(p));
+  const wet=()=>{S.beds[0].soil=30;S.beds.forEach((b,i)=>{if(i)b.soil=75;});};
+  function one(title,should,protect,setup,ok){
+    baseline();S.log=[];S.sig="";S.notes=[];
+    setup();
+    decide();
+    const pass=!!ok();
+    return {title,should,protect,found:S.notes.slice(0,2).join(" ")||"inget larm",pass};
+  }
+  let rows=[];
+  try{
+    rows.push(one("Pump går, flöde noll","Ström finns och verkligt flöde är noll","Processlarm, inte mätfel",()=>{S.beds[0].clog=true;wet();},()=>S.pumpCurrentActual>0.5&&S.headerActual===0&&S.headerMeasured===0&&has("verkligt flöde är noll")));
+    rows.push(one("Flödesgivare visar noll","Verkligt flöde finns, givaren säger noll","Inget processtopp på lögnen",()=>{S.flowFault="lie";wet();},()=>S.headerActual>0&&S.headerMeasured===0&&has("Mätfel")&&!has("verkligt flöde är noll")));
+    rows.push(one("Flödesgivare fast","Visar 2,4 l/min fast flödet är noll","Mätfel",()=>{S.flowFault="stuck";S.flowStuckAt=2.4;S.beds.forEach(b=>b.soil=75);},()=>S.headerActual===0&&S.headerMeasured===2.4&&has("Mätfel")));
+    rows.push(one("Flödesgivare tyst","Flödet kan inte verifieras","Okänt, inte noll",()=>{S.flowFault="silent";wet();},()=>S.headerMeasured==null&&has("kan inte verifieras")&&!has("verkligt flöde är noll")));
+    rows.push(one("Ström visar noll","Pumpen går, givaren säger noll","Inte ett stopp",()=>{S.currentFault="zero";wet();},()=>S.pumpCurrentActual>0.5&&S.pumpCurrentMeasured===0&&has("inte ett stopp")));
+    rows.push(one("Överström","6,4 A är belastning","Överströmslarm",()=>{S.pumpLoad="over";wet();},()=>S.pumpCurrentMeasured>4&&has("Överström")));
+    rows.push(one("Zonflöde mätfel","Chilis givare och verkligt flöde säger olika","Jorden följer verkligt flöde",()=>{S.zoneFault="lie";wet();},()=>S.beds[0].flowActual>0&&S.beds[0].flowMeasured===0&&has("zonflödesgivaren")));
+    rows.push(one("Anemometer tyst","Luftflödet är okänt","Inte larm om för lite luft",()=>{S.anemo="silent";S.mode.vents="on";S.mode.fan="on";},()=>S.layers.vents.process===null&&has("okänt")&&!has("räcker inte")));
+    rows.push(one("Anemometer fast","Mätvärdet ligger kvar","Avvikelse mot uppskattningen",()=>{S.anemo="stuck";S.mode.vents="off";S.mode.fan="off";},()=>S.airMeasured===140&&S.airEstimated===0&&has("stämmer inte")));
+    rows.push(one("NOVA ingen träff","Ingen aktuell höjd","Senaste giltiga sparas",()=>{S.novaFault="dead";},()=>S.beds[0].h===null&&S.beds[0].lastValidH===22));
+    rows.push(one("NOVA-kalibrering","Referens 3 cm dras en gång","Höjd = planta minus referens",()=>{S.beds[0].ref=3;},()=>S.beds[0].h===+(S.beds[0].trueH-3).toFixed(2)));
+    rows.push(one("Kontaktor fast","Frånslag, men ström och flöde finns kvar","Kontaktor",()=>{S.beds[0].pos="open";S.beds[0].soil=92;S.main.pos="open";S.supply.pos="open";S.beds.forEach((b,i)=>{if(i)b.soil=36;});},()=>S.supplyCut&&S.pumpCurrentActual>0.3&&S.headerActual>0.2&&has("frånslag")));
+    rows.push(one("Ventil fast öppen","Zonventil öppen mot kommando","Huvudventil",()=>{S.beds[0].pos="open";S.beds[0].soil=92;S.beds.forEach((b,i)=>{if(i)b.soil=36;});},()=>S.mainLock&&has("Huvudventil")));
+    rows.push(one("Pi borta","Bara Pi, normal temperatur och tank","Inget hårdvaruskydd",()=>{S.piOk=false;},()=>!S.piOk&&!S.hwElement&&!S.hwFloat&&S.tank===62));
+    rows.push(one("Pi och termostat","Elementtermostaten bryter","Termostat i ledningen",()=>{S.piOk=false;S.elementT=80;S.dev.heat.relay="closed";},()=>S.hwElement&&!S.hwFloat&&S.amps===0));
+    rows.push(one("Pi och vippa","Nivåvippan bryter pumpen","Vippa i ledningen",()=>{S.piOk=false;S.tank=4;S.dev.pump.relay="closed";S.supply.pos="open";},()=>S.hwFloat&&!S.hwElement&&S.pumpCurrentActual===0));
+    rows.push(one("Temp tyst","Värme spärras trots På","Givarspärr",()=>{S.tempFault=true;S.mode.heat="on";S.T=16;},()=>S.tempFault&&S.cmd.heat===false&&has("Temperaturgivare")));
+    S.day=4;saveHist();S.day=1;saveHist();
+    let stored=null;
+    try{stored=JSON.parse(localStorage.getItem("fcl18-hist"));}catch(e){}
+    rows.push({title:"Dagräknare",should:"Nollställning sparar dag 1",found:stored?"sparad dag "+stored.day:"ingen lagring",protect:"Omladdning får inte ta tillbaka gammal dag",pass:!!(stored&&stored.day===1)});
+    rows.push({title:"Pumpström",kind:"avgränsning",should:"Skilj modell från givare",found:"Simulerad ström räknas från kontaktor, relä och last. Det finns ingen tångamperemeter i den här filen.",protect:"På Pi ska en strömtransformator mäta",pass:true});
+  }catch(e){rows.push({title:"Protokoll",should:"köras",found:String(e),protect:"-",pass:false});}
+  const beds=saved.beds,dev=saved.dev,main=saved.main,supply=saved.supply,mode=saved.mode,log=saved.log,hist=saved.hist,gaps=saved.gaps;
+  Object.assign(S,saved);
+  S.beds=beds;S.dev=dev;S.main=main;S.supply=supply;S.mode=mode;S.log=log;S.hist=hist;S.gaps=gaps;
+  S.protocol=rows;
+  saveHist();
+  decide();
+  render();
+  logLine("Testprotokoll "+rows.filter(r=>r.pass).length+" av "+rows.length+".");
+  render();
+}
+document.getElementById("runproto").onclick=runProtocol;
+loadHist();
+readNova(novaChannels());
+decide();render();
+setInterval(step,400);
+</script>
